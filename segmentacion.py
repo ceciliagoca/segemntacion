@@ -62,7 +62,7 @@ def segmetarByKMeans( img,  k,  max_iter,  eps):
     attempts =10;
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, max_iter, eps)
     ret,label,center=cv.kmeans(p,k,None,criteria,attempts,cv.KMEANS_RANDOM_CENTERS)
-
+    print (center);
     #a = np.where(label == 0)[0];  #indoces donde se cumple la restricción
     #print ('a: ' , a);ee ee
     b= 255 / k;
@@ -79,6 +79,8 @@ def segmetarByKMeans( img,  k,  max_iter,  eps):
     cv.waitKey(0);
 
     return img_seg
+
+
 
 
 if __name__ == "__main__":
