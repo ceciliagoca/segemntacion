@@ -9,7 +9,7 @@ import numpy as np
 import cv2 as cv
 
 b_showing = 1   ;
-k =10 ;
+k =3;
 max_iter = 15 ;
 eps =.001        ;
 sh_scale =.30;
@@ -87,38 +87,68 @@ def segmetarByKMeans(img, k, max_iter, eps):
 
     #def postSegmentacion(img)
     #find contours
+def findCountorns(img):
+    rows, cols = img.shape[:2];
+    print(img.shape)
+    thresh1 = np.zeros((rows,cols,1),np.uint8)
+    #img2 =  cv.cvtColor(img,cv.COLOR_GRAY2RGB)
+    ret,thresh1 = cv.threshold(img,1 ,255,cv.THRESH_BINARY)
+    np.uint8(thresh1)
+    image, contours, hierarchy = cv.findContours(thresh1,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+    img_ = cv.drawContours(img, contours, -1, (0,255,0), 3)
+
+    cv.imshow( 'countorns', img_ )
+    return img_
 
 
+def segmentar(img,seg):
+    iseg = seg.copy();
 
-def segmentar(img):
-    iseg = img.copy();
+    rows, cols = img.shape[:2];
+    newimg = np.zeros((rows,cols,1),np.uint8)
 
-    # edges = cv.Canny(img,1,255,3,7,1)
-    # cv.imshow('cany', edges)
-    # cv.waitKey(0)
-    kernel = cv.getStructuringElement(cv.MORPH_CROSS,(10,10 ))
+    ret,thresh1 = cv.threshold(iseg,1 ,255,cv.THRESH_BINARY)
+    #img2_fg = cv.bitwise_and(img,img,thresh1)
+    #img1_bg = cv.bitwise _and(img,thresh1)
+    img1 = cv.bitwise_and(img, img, mask=thresh1)
+    cv.imshow('cany1', img1)
+
+    #findCountorns(img1);
+    #kernel = np.ones((9,9),np.uint8)
+    #opening = cv.morphologyEx(img, cv.MORPH_OPEN, kernel,2)
+    #erosion = cv.erode(thresh1,kernel,iterations =1)
+
+    #edges = cv.Canny(thresh1,100,255)
+
+    #kernel = np.ones((9,9),np.uint8)
+    #gradient = cv.morphologyEx(erosion, cv.MORPH_GRADIENT, kernel)
+
+    #cv.imshow('cany1', thresh1)
+    #cv.imshow('cany2', opening)
+    #cv.imshow('cany3', gradient)
+
+    #suma = gradient + erosion
+    #cv.imshow('cany4', suma)
+    cv.waitKey(0)
+
+
+   # kernel = cv.getStructuringElement(cv.MORPH_CROSS,(10,10 ))
 
 
 
     opening = cv.morphologyEx(iseg, cv.MORPH_DILATE, kernel)
-    kernel = cv.getStructuringElement(cv.MORPH_CROSS,(15,15 ))
-    opening = cv.morphologyEx(iseg, cv.MORPH_OPEN, kernel)
-
-    kernel = np.ones((12,12),np.uint8)
-    erosion = cv2.erode(img,kernel,iterations = 1)
-    cv.imshow('opening', opening)
-    cv.waitKey(0)
     return iseg
 
 
 def watershed(img):
     rows, cols = img.shape[:2];
     img2 = np.zeros((rows,cols,3),np.uint8)
+    img2 =  cv.cvtColor(img,cv.COLOR_GRAY2RGB)
+
     ret, thresh = cv.threshold(img,1,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
     cv.imshow('treshh', thresh)
     cv.waitKey(0)
 
-    img2 =  cv.cvtColor(img,cv.COLOR_GRAY2RGB)
 
     # noise removal
     kernel = np.ones((3,3),np.uint8)
@@ -183,8 +213,8 @@ if b_showing:
     imgShow(segRes, sh_scale, "segementacion_1")
 
 
-##segmentar(segRes)
-watershed(segRes)
+segmentar(img,segRes)
+##watershed(segRes)
 #
 #
 # if b_showing:
