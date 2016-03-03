@@ -88,6 +88,8 @@ def segmetarByKMeans(img, k, max_iter, eps):
     #def postSegmentacion(img)
     #find contours
 def findCountorns(img):
+
+
     rows, cols = img.shape[:2];
     print(img.shape)
     thresh1 = np.zeros((rows,cols,1),np.uint8)
