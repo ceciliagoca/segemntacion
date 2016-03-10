@@ -1,43 +1,6 @@
-__author__ = "cecilia"
-__date__ = "$Feb 23, 2016 11:05:50 AM$"
-__update__ = "$Mar 03, 2016 11:05:50 AM$"
 import numpy as np
 import cv2 as cv
-
-
-b_showing = 1   ;
-k =2
-max_iter = 15;
-eps =.001        ;
-sh_scale =.30;
-
-
-def imgResize(img,p):
-    cols, rows = img.shape[:2];
-    ds_cols = int(p*cols);
-    ds_rows = int(p*rows);
-    ds_img = cv.resize(img, (ds_rows, ds_cols), interpolation = cv.INTER_CUBIC)
-    return ds_img
-
-
-def imgShow(img, p, str):
-    ds_img=imgResize(img,p)
-    cv.imshow(str,ds_img);
-    cv.waitKey(0);
-    return 0
-
-
-def getNDVI(img):
-
-    d_blue = img[:,:,1]
-    d_nir = img[:,:,2]
-    print(d_blue.dtype)
-    ##falta calibrar el azul
-    aux_nir = d_nir/255.0;
-    aux_blue = d_blue/255.0;
-    ndvi = (aux_nir - aux_blue)/(aux_nir + aux_blue);
-    #retorno el nir porque funciona mejor que ndvi
-    return aux_nir
+import utilsImg as u
 
 def segmetarByKMeans(img, k, max_iter, eps):
 
@@ -64,21 +27,74 @@ def segmetarByKMeans(img, k, max_iter, eps):
 
     return img_seg
 
-def findCountorns(img, img_bin): #recibe imagen en escala de grises y binaris
+def findCountorns(img, img_bin): #recibe imagen de tres canales de grises y binaria con formato +uint8
 
+    #verificar tipos de datos
+    cv.imshow('img_bin2', img_bin)
+    cv.waitKey(0);
     im2, contours, hierarchy = cv.findContours(img_bin,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-    cv.drawContours(img, contours, -1, (0,255,0), 3)
+    print (len(contours))
+    cv.drawContours(img, contours, -1, (255,0,0), 6)
+    ##wathershed
+
+    #
+    # ret, markers = cv.connectedComponents(img_bin)
+    # markers = markers+1
+    # #markers[unknown ==255] = 0
+    # markers = cv.watershed(img,markers)
+    #
+    # rows, cols = img.shape[:2];
+    # img2 = np.zeros((rows,cols,3),np.uint8)
+    # img2[markers == -1] = [255,0,0]
+    #
+    #
+    #
+    # cv.imshow('treshh3', img2)
+    # cv.waitKey(0)
+
 
     return img
 
 def segmentar(img):
 
     rows, cols = img.shape[:2];
-    ret,thresh1 = cv.threshold(img,1 ,255,cv.THRESH_BINARY)
+    cv.imshow('maskeddata', img)
+    cv.waitKey(0)
 
-    return thresh1
+    opening = cv.morphologyEx(img, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE,(5,5)))
+    opening = cv.morphologyEx(opening, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_ELLIPSE,(11,11)))
+
+    kernel = np.ones((7,7),np.uint8)
+    erosion = cv.erode(opening,cv.getStructuringElement(cv.MORPH_ELLIPSE,(7,7)),iterations = 2);
+    ret, thresh = cv.threshold(erosion,.5,1 ,cv.THRESH_BINARY)
+    cv.imshow('erosion', erosion)
+    cv.waitKey(0)
+
+    x2 = np.zeros((rows,cols,3), np.uint8);
+
+    myeros = erosion*256;
+    thresh[thresh!=0]=255;
+
+    x = np.uint8(thresh)
+
+    cv.imshow('cccon', x)
+    cv.waitKey(0)
+
+
+    xmyeros= np.uint8(myeros)
+    print (xmyeros.dtype , ' ' , xmyeros.shape)
+    print (x2.dtype , ' ' , x2.shape)
+    x2 =  cv.cvtColor(xmyeros,cv.COLOR_GRAY2RGB)
+
+    aux = findCountorns(x2,x)
+    cv.imshow('con', aux)
+    cv.waitKey(0)
+    #watershed(erosion)
+
+    return aux
 
 def watershed(img):
+    print (img.shape)
     rows, cols = img.shape[:2];
     img2 = np.zeros((rows,cols,3),np.uint8)
     img2 =  cv.cvtColor(img,cv.COLOR_GRAY2RGB)
@@ -113,8 +129,8 @@ def watershed(img):
     img2[markers == -1] = [255,0,0]
 
 
+
     cv.imshow('treshh3', img2)
     cv.waitKey(0)
-
 
     return thresh
