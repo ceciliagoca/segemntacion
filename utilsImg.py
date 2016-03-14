@@ -14,3 +14,7 @@ def imgShow(img, p, str):
     cv.imshow(str,ds_img);
     cv.waitKey(0);
     return 0
+
+def imgDes(img):
+    print ('type: ' , img.dtype , ' shape: ' , img.shape)
+    return 0
