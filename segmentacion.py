@@ -12,17 +12,15 @@ def segmetarByKMeans(img,p, k, max_iter, eps):
     attempts =10;
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, max_iter, eps)
     ret,label,center=cv.kmeans(p,k,None,criteria,attempts,cv.KMEANS_PP_CENTERS)
+    center2 =  center[:,0]
+    a = sorted(range(len(center2)), key=lambda k:center2[k]) #indices oordenados de menor a mayor
 
-    #center2 = center[0]/center[1]
-
-    # a = sorted(range(len(center2)), key=lambda k: center2[k]) #indices oordenados de menor a mayor
-    #
     b = 255 / (k-1);
     aux = label.copy()
 
     for x in range(0,k):
-        aux[label == x] = (x*b)
-        #print (x)
+        aux[label == a[x]] = (x*b)
+        print (x)
 
     aux = aux.reshape(img.shape)
     img_seg = np.uint8(aux)
@@ -137,12 +135,13 @@ def watershed(img):
 
     return thresh
 
-def segOtsu(img):
+def segOtsu(img): #return a mask
 
     img = img*255
     img = np.uint8(img)
-    #img = cv.medianBlur(img,5)
-    #ret,th1 = cv.threshold(img,127,255,cv.THRESH_BINARY)
+
+    img = cv.medianBlur(img,5)
+
     # th2 = cv.adaptiveThreshold(img,255,cv.ADAPTIVE_THRESH_MEAN_C,cv.THRESH_BINARY,11,2)
     # th3 = cv.adaptiveThreshold(img,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY,11,2)
     #
@@ -163,13 +162,14 @@ def segOtsu(img):
     # ret2,th2 = cv.threshold(img,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
     # # Otsu's thresholding after Gaussian filtering
 
-    blur = cv.GaussianBlur(img,(3,3),0)
-    ret3,th3 = cv.threshold(blur,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+    #blur = cv.GaussianBlur(img,(1,1),0)
+    ret3,mask = cv.threshold(img,100,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
 
 
     #cv.imshow('img1',img )
     #cv.imshow('th3', th3)
     #cv.waitKey(0);
 
-    return th3
+    return mask
+
 

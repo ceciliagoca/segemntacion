@@ -18,83 +18,168 @@ def getNDVI(img):
     aux_nir = d_nir/255.0;
     aux_blue = d_blue/255.0;
     ndvi = (aux_nir - aux_blue)/(aux_nir + aux_blue);
+
+
+
     #retorno el nir porque funciona mejor que ndvi
     return ndvi
 
+
+def segmentacion_01(img_ndvi): #unicamente segmetacion
+
+    veg_mask = s.segOtsu(img_ndvi)
+    img_veg = cv.bitwise_and(img_ndvi,img_ndvi,mask = veg_mask)
+    img_veg = img_veg * 255;
+
+    img_veg = np.uint8(img_veg)
+    clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    cl1 = clahe.apply(img_veg)
+    cv.imshow('vegetaciónCL', cl1)
+
+
+
+    opening = cv.morphologyEx(cl1, cv.MORPH_OPEN,  cv.getStructuringElement(cv.MORPH_ELLIPSE,(7,7)))
+    #opening = cv.GaussianBlur(opening,(7,7),0)
+    #opening=cv.blur(opening,(5,5))
+    opening=cv.medianBlur(opening,7)
+
+    opening [opening>135] =0
+    laplacian = cv.Laplacian(opening,cv.CV_64F,ksize=1, scale=.05 , borderType=cv.BORDER_DEFAULT) #bordes de uniones los voy a enogrodar y a restarlos a la imagen original
+    laplacian = cv.dilate(laplacian,cv.getStructuringElement(cv.MORPH_ELLIPSE,(7,7)));
+
+    newimg = opening #np.zeros((907,1209),np.uint8);
+    newimg [laplacian > .9 ] = 0
+
+    cv.imshow('laplacian', laplacian)
+    cv.imshow('segmentacion_03', newimg)
+
+    #erdoe =  cv.erode(newimg,cv.getStructuringElement(cv.MORPH_ELLIPSE,(5,5)))
+    #cv.imshow('segmentacion_03', erdoe)
+
+    opening = cv.morphologyEx(newimg, cv.MORPH_CLOSE,  cv.getStructuringElement(cv.MORPH_ELLIPSE,(7,7)))
+    opening = cv.morphologyEx(opening, cv.MORPH_CLOSE,  cv.getStructuringElement(cv.MORPH_ELLIPSE,(7,7)))
+    cv.imshow('segmentacion_4', opening)
+
+
+    #opening = cv.threshold(opening,.8,1,cv.THRESH_BINARY)
+     # Marker labelling
+    ret, markers = cv.connectedComponents(opening)
+
+
+    # Add one to all labels so that sure background is not 0, but 1
+    markers = markers+1
+
+    # Now, mark the region of unknown with zero
+    markers[veg_mask==0] = 0
+
+    vegMask = img_ndvi*255
+    vegMask = np.uint8(vegMask)
+
+    vegMask = cv.cvtColor(opening,cv.COLOR_GRAY2BGR );
+
+    markers = cv.watershed(vegMask,markers)
+    vegMask[markers == -1] = [255,0,0]
+
+    cv.imshow('segmentacion', vegMask)
+    cv.waitKey(0)
+    return 0
+
+
+def segmentacion_02(img_ndvi): #wahteshed
+
+    veg_mask = s.segOtsu(img_ndvi)
+
+    kernel = np.ones((5,5),np.uint8)
+    veg_mask = cv.morphologyEx(veg_mask,cv.MORPH_OPEN,kernel, iterations = 3)
+
+
+    img_veg = cv.bitwise_and(img_ndvi,img_ndvi,mask = veg_mask)
+    img_veg = img_veg * 255;
+    vegMask = np.uint8(img_veg)
+    vegMask = cv.cvtColor(vegMask,cv.COLOR_GRAY2BGR );
+
+    #
+    # kernel = np.ones((5,5),np.uint8)
+    # opening = cv.morphologyEx(veg_mask,cv.MORPH_OPEN,kernel, iterations = 3)
+    #
+    #
+    # # sure background area
+    # sure_bg = cv.dilate(opening,kernel,iterations=3)
+    #
+    # # Finding sure foreground area
+    # dist_transform = cv.distanceTransform(opening,cv.DIST_L2,5)
+    # ret, sure_fg = cv.threshold(dist_transform,0.7*dist_transform.max(),255,0)
+    #
+    # # Finding unknown region
+    # sure_fg = np.uint8(sure_fg)
+    # unknown = cv.subtract(sure_bg,sure_fg)
+
+
+    # Marker labelling
+    ret, markers = cv.connectedComponents(veg_mask)
+
+    # Add one to all labels so that sure background is not 0, but 1
+    markers = markers+1
+
+    # Now, mark the region of unknown with zero
+    markers[veg_mask==0] = 0
+
+
+
+    markers = cv.watershed(vegMask,markers)
+    vegMask[markers == -1] = [255,0,0]
+
+
+    cv.imshow('maskara',veg_mask);
+    # cv.imshow('openin',opening);
+    # cv.imshow('sure_bg',sure_bg);
+    # cv.imshow('dist_trans',dist_transform);
+    # cv.imshow('sure_fg',sure_fg);
+    # cv.imshow('unknow', unknown);
+    # cv.imshow('markers', markers);
+    cv.imshow('ffff', vegMask);
+    cv.waitKey();
+    return 0
+
+def segmetacion_03(img_nir, img_ndvi): #con kmeans
+
+    #d_blue = img_nir[:,:,1]
+    d_nir = img_nir[:,:,2]
+    veg_mask = s.segOtsu(img_ndvi)
+
+    #mascara de nir y de ndvi
+    veg_zones_ndvi = cv.bitwise_and(img_ndvi,img_ndvi,mask = veg_mask)
+    veg_zones_nir = cv.bitwise_and(d_nir,d_nir,mask = veg_mask)
+    veg_zones_nir_f32 = np.float32(veg_zones_nir);
+    veg_zones_nir_f32 = veg_zones_nir_f32/255;
+    k = 4;
+    max_iter = 5;
+    eps =.01;
+
+    rows, cols = veg_zones_ndvi.shape[:2];
+    p = np.zeros(( cols*rows,2));
+    p[:,0] = veg_zones_ndvi.reshape(( cols*rows,1))[:,0];
+    veg_zones_nir_f32 = veg_zones_nir_f32/255
+    p[:,1] = veg_zones_nir_f32.reshape(( cols*rows,1))[:,0];
+    p = np.float32(p)
+    x = s.segmetarByKMeans(img_ndvi,p,k,max_iter,eps)
+    cv.imshow('kmeans', x);
+    cv.waitKey();
+
+    return 0
 
 if __name__ == "__main__":
       print ("Segmentacion de plantas con k means")
       print ("version de opencv: " + cv.__version__)
 
+
 img_nir = cv.imread('datos/lechuga_ndvi/3.JPG',1)
 img_nir = u.imgResize(img_nir,sh_scale)
-d_blue = img_nir[:,:,1]
-d_nir = img_nir[:,:,2]
-#ndvi = getNDVI(img)
 
-##leyendo NDVI
-
-# obtener arreglo con nir
+img_ndvi = cv.imread('datos/ndvis/1.tif',cv.IMREAD_ANYDEPTH)
+img_ndvi = u.imgResize(img_ndvi,sh_scale)
 
 
-img = cv.imread('datos/ndvis/1.tif',cv.IMREAD_ANYDEPTH)
-img = u.imgResize(img,sh_scale)
-
-sh_scale =1;
-
-if b_showing:
-    u.imgShow(img, sh_scale, "ndvi")
-
-#separar tierra de plantas, primera segmentación
-k = 3;
-max_iter = 5;
-eps =.01;
-
-u.imgDes(d_nir)
-
-mask = s.segOtsu(img) #sotsu supone que hay dos cosas
-u.imgDes(mask)
-veg_zones_ndvi = cv.bitwise_and(img,img,mask = mask)
-veg_zones_nir = cv.bitwise_and(d_nir,d_nir,mask = mask)
-veg_zones_lv = cv.bitwise_and(d_blue,d_blue,mask = mask)
-
-u.imgDes(veg_zones_ndvi)
-veg_zones_nir_f32 = np.float32(veg_zones_nir);
-veg_zones_lv_f32 = np.float32(veg_zones_lv);
-
-
-#cv.imshow('veg_veg_zones', veg_zones_ndvi );
-#cv.imshow('veg_veg_nir', veg_zones_nir );
-#cv.imshow('veg_veg_lv', veg_zones_lv );
-
-#imgF = cv.merge((veg_zones_nir_f32,veg_zones_nir_f32,veg_zones_ndvi));
-
-
-rows, cols = veg_zones_ndvi.shape[:2];
-p = np.zeros(( cols*rows,2));
-
-
-p[:,0] = veg_zones_ndvi.reshape(( cols*rows,1))[:,0];
-
-veg_zones_nir_f32 = veg_zones_nir_f32/255
-p[:,1] = veg_zones_nir_f32.reshape(( cols*rows,1))[:,0];
-
-#veg_zones_lv_f32 = veg_zones_lv_f32/255
-#p[:,2] = veg_zones_lv_f32.reshape(( cols*rows,1))[:,0];
-
-
-p = np.float32(p)
-
-
-u.imgDes(p)
-# p = np.float32(p)
-
-
-x = s.segmetarByKMeans(veg_zones_ndvi,p,k,max_iter,eps)
-#
-cv.imshow('x', x );
-#
-# x = s.findCountorns(veg_zones,mask)
-# cv.imshow('xs', x );
-
-cv.waitKey(0);
+segmentacion_01(img_ndvi)
+#segmentacion_02(img_ndvi)
+#segmetacion_03(img_nir,img_ndvi)
