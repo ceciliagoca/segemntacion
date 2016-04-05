@@ -8,13 +8,12 @@ import utilsImg as u
 import segmentacion as s
 
 b_showing = 1;
-sh_scale =.30;
+sh_scale =.25;
 
 def getNDVI(img):
 
     d_blue = img[:,:,1]
     d_nir = img[:,:,2]
-    ##falta calibrar el azul
     aux_nir = d_nir/255.0;
     aux_blue = d_blue/255.0;
     ndvi = (aux_nir - aux_blue)/(aux_nir + aux_blue);
@@ -168,18 +167,84 @@ def segmetacion_03(img_nir, img_ndvi): #con kmeans
 
     return 0
 
+def segmentacion_04(img):
+
+    veg_mask = s.segOtsu(img)
+
+
+    img = img * 255
+
+    img = np.uint8(img)
+
+    ret, veg_mask1 = cv.threshold(img,150,255,cv.THRESH_BINARY)
+
+
+    cv.imshow("otsua", veg_mask1)
+
+
+
+    inicial = img * veg_mask + img * veg_mask1
+
+    cv.imshow("otsu", veg_mask)
+    kernel = np.ones((5, 5), np.uint8)
+    #
+
+    veg_mask1 = cv.morphologyEx(veg_mask, cv.MORPH_ERODE, kernel, iterations=5)
+
+    veg_mask =  veg_mask +veg_mask1;
+
+
+    veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_ERODE, kernel, iterations=5)
+    veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_CLOSE, kernel, iterations=1)
+
+
+    cv.imshow("segme", veg_mask)
+    cv.imshow("ini", inicial)
+
+    s.watershed2(veg_mask,inicial)
+
+    cv.waitKey(0)
+
+    return 0
+
 if __name__ == "__main__":
-      print ("Segmentacion de plantas con k means")
+      print ("Segmentacion de lechugas")
       print ("version de opencv: " + cv.__version__)
 
 
 img_nir = cv.imread('datos/lechuga_ndvi/3.JPG',1)
 img_nir = u.imgResize(img_nir,sh_scale)
+d_nir = img_nir[:,:,2]
 
 img_ndvi = cv.imread('datos/ndvis/1.tif',cv.IMREAD_ANYDEPTH)
 img_ndvi = u.imgResize(img_ndvi,sh_scale)
 
 
-segmentacion_01(img_ndvi)
+
+#conjunto de caracteristicas (ndvi, nir)
+
+f_nir = np.float32(d_nir);
+f_nir = f_nir/255;
+
+rows, cols = f_nir.shape[:2];
+p = np.zeros(( cols*rows,2));
+p[:,0] = f_nir.reshape(( cols*rows,1))[:,0];
+p[:,1] = img_ndvi.reshape(( cols*rows,1))[:,0];
+p = np.float32(p)
+
+
+segmentacion_04(img_nir[:,:,2])
+
+#segmentacion_01(img_ndvi)
 #segmentacion_02(img_ndvi)
 #segmetacion_03(img_nir,img_ndvi)
+
+#s.watershed(img_nir[:,:,2])
+
+#s.clouster_SCL(p)
+#a  = s.MiniBachkMeans(img_nir,p);
+#a= s.AffinityPropagation(img_nir,p);
+
+#cv.imshow("segmentacion_result", a)
+
+#cv.waitKey(0);

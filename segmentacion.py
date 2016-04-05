@@ -1,6 +1,10 @@
 import numpy as np
 import cv2 as cv
-import utilsImg as u
+import utilsImg as ut
+import sklearn.cluster as sc
+import scipy.cluster.hierarchy as slp
+from matplotlib import pyplot as plt
+
 
 def segmetarByKMeans(img,p, k, max_iter, eps):
 
@@ -17,7 +21,6 @@ def segmetarByKMeans(img,p, k, max_iter, eps):
 
     b = 255 / (k-1);
     aux = label.copy()
-
     for x in range(0,k):
         aux[label == a[x]] = (x*b)
         print (x)
@@ -93,6 +96,25 @@ def segmentar(img):
 
     return aux
 
+def watershed2(seem, img):
+
+    rows, cols = img.shape[:2];
+    img_aux = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+
+    ret, markers = cv.connectedComponents(seem)
+    markers = markers + 1
+    markers[seem == 0] = 0
+
+    markers = cv.watershed(img_aux, markers)
+
+    img_aux[markers == -1] = [255, 0, 0]
+
+    cv.imshow('treshh3', img_aux)
+    cv.waitKey(0)
+
+    return  0
+
+
 def watershed(img):
     print (img.shape)
     rows, cols = img.shape[:2];
@@ -102,7 +124,6 @@ def watershed(img):
     ret, thresh = cv.threshold(img,1,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
     cv.imshow('treshh', thresh)
     cv.waitKey(0)
-
 
     # noise removal
     kernel = np.ones((3,3),np.uint8)
@@ -164,12 +185,85 @@ def segOtsu(img): #return a mask
 
     #blur = cv.GaussianBlur(img,(1,1),0)
     ret3,mask = cv.threshold(img,100,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
-
+    h, mask = cv.threshold(mask, 200, 255, cv.THRESH_BINARY_INV)
 
     #cv.imshow('img1',img )
     #cv.imshow('th3', th3)
     #cv.waitKey(0);
 
     return mask
+
+def clouster_SCL(y):
+    np.set_printoptions(precision=5, suppress=True)
+    print(y.shape)
+    #plt.scatter(y[:,0], y[:,1])
+    #plt.show()
+    #slp.linkage(y, method='single', metric='euclidean')
+    Z = slp.linkage(y, 'ward')
+    return 0
+
+def MiniBachkMeans(img,datos):
+    k=3
+    MBk_means = sc.MiniBatchKMeans(init='k-means++', n_clusters=k, n_init=10)
+    MBk_means.fit(datos);
+    labels = MBk_means.predict(datos);
+    print (labels.shape , ' ' ,datos.shape)
+    #a = sorted(range(len(la)), key=lambda k: center2[k])  # indices oordenados de menor a mayor
+    b = 255 / (k - 1);
+    aux = labels.copy()
+
+    for x in range(0, k):
+        aux[labels == x] = (x * b)
+        print(x)
+    rows, cols = img.shape[:2];
+    aux = aux.reshape((rows,cols))
+    img_seg = np.uint8(aux)
+    #img_seg = np.float(aux)
+    x = img_seg.astype(float)
+
+    print (x.dtype)
+    return img_seg
+
+# def AffinityPropagation(img, datos):
+#     AP = sc.AffinityPropagation(max_iter=2,verbose=1 )
+#     AP.fit(datos);
+#     labels = AP.predict(datos);
+#     print(labels.shape, ' ', datos.shape)
+#     # a = sorted(range(len(la)), key=lambda k: center2[k])  # indices oordenados de menor a mayor
+#     k = AP.cluster_centers_indices_.shape[0]
+#     b = 255 / (k - 1);
+#     aux = labels.copy()
+#
+#     for x in range(0, k):
+#         aux[labels == x] = (x * b)
+#         print(x)
+#     rows, cols = img.shape[:2];
+#     aux = aux.reshape((rows, cols))
+#     img_seg = np.uint8(aux)
+#
+#     return img_seg
+#
+def MeanShift(y):
+    return 0
+
+def SpectralClustering(y):
+    return 0
+
+def ward(y):
+    return 0
+
+def agglomeraticeClus(y):
+    return 0
+
+def bdscan(y):
+    return 0
+
+def Birch(y):
+    return 0
+
+
+
+
+
 
 
