@@ -109,8 +109,8 @@ def watershed2(seem, img):
 
     img_aux[markers == -1] = [255, 0, 0]
 
-    cv.imshow('treshh3', img_aux)
-    cv.waitKey(0)
+    cv.imshow('watershed ', img_aux)
+
 
     return  0
 
@@ -156,15 +156,15 @@ def watershed(img):
 
     return thresh
 
-def segOtsu(img): #return a mask
+def segOtsu(img, blur_size=5): #return a mask
 
-    img = img*255
-    img = np.uint8(img)
+    #img = img*255
+    # img = np.uint8(img)
 
-    img = cv.medianBlur(img,5)
+    img = cv.medianBlur(img,blur_size)
 
     # th2 = cv.adaptiveThreshold(img,255,cv.ADAPTIVE_THRESH_MEAN_C,cv.THRESH_BINARY,11,2)
-    # th3 = cv.adaptiveThreshold(img,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY,11,2)
+    # mask = cv.adaptiveThreshold(img,150,cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY_INV,11,2)
     #
     #
     # cv.imshow('img1',img )
@@ -184,8 +184,8 @@ def segOtsu(img): #return a mask
     # # Otsu's thresholding after Gaussian filtering
 
     #blur = cv.GaussianBlur(img,(1,1),0)
-    ret3,mask = cv.threshold(img,100,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
-    h, mask = cv.threshold(mask, 200, 255, cv.THRESH_BINARY_INV)
+    ret3,mask = cv.threshold(img,150,255,cv.THRESH_BINARY +cv.THRESH_OTSU)
+    #h, mask = cv.threshold(mask, 200, 255, cv.THRESH_BINARY_INV)
 
     #cv.imshow('img1',img )
     #cv.imshow('th3', th3)

@@ -168,42 +168,60 @@ def segmetacion_03(img_nir, img_ndvi): #con kmeans
     return 0
 
 def segmentacion_04(img):
+    original = img
+    veg_mask = s.segOtsu(img,7 )
+    u.imgDes(img )
+    cv.imshow('original',original)
+    cv.imshow('otsu 11', img)
+    cv.imshow('otsu 11', veg_mask)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
-    veg_mask = s.segOtsu(img)
-
-
-    img = img * 255
-
-    img = np.uint8(img)
-
-    ret, veg_mask1 = cv.threshold(img,150,255,cv.THRESH_BINARY)
-
-
-    cv.imshow("otsua", veg_mask1)
-
-
-
-    inicial = img * veg_mask + img * veg_mask1
-
-    cv.imshow("otsu", veg_mask)
-    kernel = np.ones((5, 5), np.uint8)
-    #
-
-    veg_mask1 = cv.morphologyEx(veg_mask, cv.MORPH_ERODE, kernel, iterations=5)
-
-    veg_mask =  veg_mask +veg_mask1;
+    #sombras --restar sombras la final
+    #img = img * 255
+    #img = np.uint8(img)
+    #img = cv.medianBlur(img, 11)
+    #ret3, mask = cv.threshold(img, 200, 255, cv.THRESH_BINARY) --> sombras
 
 
-    veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_ERODE, kernel, iterations=5)
+    #cv.imshow('img', img)
+    kernel = cv.getStructuringElement( cv.MORPH_ELLIPSE, (11,11))
+    inicial = cv.morphologyEx(veg_mask, cv.MORPH_DILATE, kernel, iterations=2)
+
+    #cv.imshow('seg', inicial*img)
+
+    #veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_ERODE, kernel, iterations=5)
     veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_CLOSE, kernel, iterations=1)
 
+    #Mat
+    #dist;
+    dist = cv.distanceTransform(veg_mask,cv.DIST_L2,cv.DIST_MASK_PRECISE) #distanceTransform(bw, dist, CV_DIST_L2, 3);
+    cv.normalize(dist, dist, 0, 1., cv.NORM_MINMAX);
+    #cv.imshow("Distance Transform Image", dist);
+    u.imgDes(dist);
+    dist = dist * 255
+    dist = np.uint8(dist)
+    u.imgDes(dist);
 
-    cv.imshow("segme", veg_mask)
-    cv.imshow("ini", inicial)
+    ret, maskdist = cv.threshold(dist, 100, 250, cv.THRESH_BINARY)
+    cv.imshow('distance seg', dist)
+    cv.imshow("ddd", maskdist);
 
-    s.watershed2(veg_mask,inicial)
+    #cv.imshow('before distance', veg_mask)
 
     cv.waitKey(0)
+    cv.destroyAllWindows()
+
+    s.watershed2(maskdist,  original )
+    cv.waitKey(0)
+    s.watershed2(maskdist, original)
+    cv.waitKey(0)
+    #mask = mask + veg_mask;
+    #cv.imshow('segss', mask)
+
+
+    cv.waitKey(0)
+
 
     return 0
 
@@ -220,6 +238,7 @@ img_ndvi = cv.imread('datos/ndvis/1.tif',cv.IMREAD_ANYDEPTH)
 img_ndvi = u.imgResize(img_ndvi,sh_scale)
 
 
+#cv.imshow('ndvi',img_ndvi)
 
 #conjunto de caracteristicas (ndvi, nir)
 
@@ -245,6 +264,6 @@ segmentacion_04(img_nir[:,:,2])
 #a  = s.MiniBachkMeans(img_nir,p);
 #a= s.AffinityPropagation(img_nir,p);
 
-#cv.imshow("segmentacion_result", a)
+#=cv.imshow("segmentacion_result", a)
 
 #cv.waitKey(0);
