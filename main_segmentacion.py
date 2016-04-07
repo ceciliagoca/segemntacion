@@ -168,69 +168,103 @@ def segmetacion_03(img_nir, img_ndvi): #con kmeans
     return 0
 
 def segmentacion_04(img):
-    original = img
-    veg_mask = s.segOtsu(img,7 )
-    u.imgDes(img )
+
+    original = img_nir[:,:,2]
+
+
+    veg_mask = s.segOtsu(original,11)
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
+    seem = cv.morphologyEx(veg_mask, cv.MORPH_DILATE, kernel, iterations=1)
+
+    seem = cv.morphologyEx(veg_mask, cv.MORPH_ERODE, kernel, iterations=1)
+
+    #img_e = cv.equalizeHist(original)
+
+    # create a CLAHE object (Arguments are optional).
+    clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    img_e = clahe.apply(original)
+
+    img_veg = cv.bitwise_and(img_e, img_e, mask=seem)
+
+
     cv.imshow('original',original)
-    cv.imshow('otsu 11', img)
-    cv.imshow('otsu 11', veg_mask)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
+    cv.imshow('veg_mask', veg_mask)
 
-    #sombras --restar sombras la final
-    #img = img * 255
-    #img = np.uint8(img)
-    #img = cv.medianBlur(img, 11)
-    #ret3, mask = cv.threshold(img, 200, 255, cv.THRESH_BINARY) --> sombras
-
-
-    #cv.imshow('img', img)
-    kernel = cv.getStructuringElement( cv.MORPH_ELLIPSE, (11,11))
-    inicial = cv.morphologyEx(veg_mask, cv.MORPH_DILATE, kernel, iterations=2)
-
-    #cv.imshow('seg', inicial*img)
-
-    #veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_ERODE, kernel, iterations=5)
-    veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_CLOSE, kernel, iterations=1)
-
-    #Mat
-    #dist;
-    dist = cv.distanceTransform(veg_mask,cv.DIST_L2,cv.DIST_MASK_PRECISE) #distanceTransform(bw, dist, CV_DIST_L2, 3);
+    ##crear semilas
+    dist = cv.distanceTransform(veg_mask, cv.DIST_L2, cv.DIST_MASK_PRECISE)  # distanceTransform(bw, dist, CV_DIST_L2, 3);
     cv.normalize(dist, dist, 0, 1., cv.NORM_MINMAX);
-    #cv.imshow("Distance Transform Image", dist);
-    u.imgDes(dist);
     dist = dist * 255
     dist = np.uint8(dist)
-    u.imgDes(dist);
-
-    ret, maskdist = cv.threshold(dist, 100, 250, cv.THRESH_BINARY)
-    cv.imshow('distance seg', dist)
-    cv.imshow("ddd", maskdist);
-
-    #cv.imshow('before distance', veg_mask)
+    cv.imshow('seem0', dist)
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (11, 11))
+    seem = cv.morphologyEx(dist, cv.MORPH_ERODE, kernel, iterations=4)
+    #kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+    cv.imshow('seem1', seem)
 
     cv.waitKey(0)
-    cv.destroyAllWindows()
+    #cv.destroyAllWindows()
 
-    s.watershed2(maskdist,  original )
-    cv.waitKey(0)
-    s.watershed2(maskdist, original)
-    cv.waitKey(0)
-    #mask = mask + veg_mask;
-    #cv.imshow('segss', mask)
-
-
-    cv.waitKey(0)
+    #apilcar watershe
+    s.watershed2(seem,img_veg)
+    cv.waitKey();
 
 
     return 0
 
+
+def segmentacion_05(img,res): # img = imagen en escala de grises
+
+    # lectura de imagen
+    if img.dtype != np.uint8 :
+        img = img * 255
+        original = np.uint8(img)
+    else:
+        original = img
+
+
+    #
+
+    k_otsu = 11 if res==1 else  5;
+    k_omorf = 6  if res==1 else 3;
+
+
+    # Segmentar tierra y vegetación
+    veg_mask = s.segOtsu(original, k_otsu)
+    cv.imshow('veg_mask', veg_mask)
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (k_omorf, k_omorf))
+    veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_CLOSE, kernel, iterations=1)
+    cv.imshow('veg_mask2', veg_mask)
+    # create a CLAHE object (Arguments are optional).
+    #clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    #img_e = clahe.apply(original)
+    img_e = cv.equalizeHist(original)
+    img_veg = cv.bitwise_and(img_e, img_e, mask=veg_mask)
+    cv.imshow('img_veg', img_veg)
+    cv.waitKey()
+
+    ##crear semilas
+    dist = cv.distanceTransform(veg_mask , cv.DIST_L2, 3)  # distanceTransform(bw, dist, CV_DIST_L2, 3);
+    cv.normalize(dist, dist, 0, 1., cv.NORM_MINMAX);
+    dist = dist * 255
+    dist = np.uint8(dist)
+    cv.imshow('seem0', dist)
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (k_omorf*2, k_omorf*2))
+    seem = cv.morphologyEx(dist, cv.MORPH_ERODE, kernel, iterations=4)
+    seem = cv.morphologyEx(seem, cv.MORPH_CLOSE, kernel, iterations=4)
+    cv.imshow('seem1', seem)
+    cv.waitKey(0)
+
+    # apilcar watershe
+    s.watershed2(seem, img_veg)
+    cv.waitKey();
+
+    return 0;
 if __name__ == "__main__":
       print ("Segmentacion de lechugas")
       print ("version de opencv: " + cv.__version__)
 
 
-img_nir = cv.imread('datos/lechuga_ndvi/3.JPG',1)
+img_nir = cv.imread('datos/lechuga_ndvi/8.JPG',1)
 img_nir = u.imgResize(img_nir,sh_scale)
 d_nir = img_nir[:,:,2]
 
@@ -252,8 +286,8 @@ p[:,1] = img_ndvi.reshape(( cols*rows,1))[:,0];
 p = np.float32(p)
 
 
-segmentacion_04(img_nir[:,:,2])
-
+#segmentacion_05(img_nir[:, :, 2])
+segmentacion_05(img_nir[:,:,2], res=0) # 1 <<- res : resolucion alta ; 0 resolucion de vuelo
 #segmentacion_01(img_ndvi)
 #segmentacion_02(img_ndvi)
 #segmetacion_03(img_nir,img_ndvi)

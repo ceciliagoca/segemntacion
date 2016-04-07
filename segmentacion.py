@@ -5,6 +5,10 @@ import sklearn.cluster as sc
 import scipy.cluster.hierarchy as slp
 from matplotlib import pyplot as plt
 
+def textureSegemtation(img):
+    #test gabor filter
+
+    return 0
 
 def segmetarByKMeans(img,p, k, max_iter, eps):
 
@@ -98,6 +102,12 @@ def segmentar(img):
 
 def watershed2(seem, img):
 
+    if (img.dtype != np.uint8):
+        img = img * 255
+        img = np.uint8(img)
+    ut.imgDes(img)
+    img = cv.medianBlur(img, 3)
+
     rows, cols = img.shape[:2];
     img_aux = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
 
@@ -106,12 +116,16 @@ def watershed2(seem, img):
     markers[seem == 0] = 0
 
     markers = cv.watershed(img_aux, markers)
-
-    img_aux[markers == -1] = [255, 0, 0]
-
-    cv.imshow('watershed ', img_aux)
+    markers[img==0] = 0
 
 
+    myset =  np.unique(markers)
+    i = 0
+    for x in myset:
+        img_aux[markers == x] = [ x*20, x*10, x*12 ]
+        i=i+1
+        cv.imshow('watershed2', img_aux)
+        cv.waitKey(200)
     return  0
 
 
@@ -158,10 +172,15 @@ def watershed(img):
 
 def segOtsu(img, blur_size=5): #return a mask
 
-    #img = img*255
-    # img = np.uint8(img)
+    if (img.dtype != np.uint8):
+        img = img*255
+        img = np.uint8(img)
 
-    img = cv.medianBlur(img,blur_size)
+
+    img_aux = cv.medianBlur(img, blur_size)
+    ret3, mask = cv.threshold(img_aux, 180, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+
+    #img = cv.medianBlur(img,blur_size)
 
     # th2 = cv.adaptiveThreshold(img,255,cv.ADAPTIVE_THRESH_MEAN_C,cv.THRESH_BINARY,11,2)
     # mask = cv.adaptiveThreshold(img,150,cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY_INV,11,2)
@@ -184,7 +203,7 @@ def segOtsu(img, blur_size=5): #return a mask
     # # Otsu's thresholding after Gaussian filtering
 
     #blur = cv.GaussianBlur(img,(1,1),0)
-    ret3,mask = cv.threshold(img,150,255,cv.THRESH_BINARY +cv.THRESH_OTSU)
+    ret3,mask = cv.threshold(img, 100 ,255,cv.THRESH_BINARY +cv.THRESH_OTSU)
     #h, mask = cv.threshold(mask, 200, 255, cv.THRESH_BINARY_INV)
 
     #cv.imshow('img1',img )
