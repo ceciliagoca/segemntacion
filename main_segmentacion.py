@@ -6,6 +6,8 @@ import numpy as np
 import cv2 as cv
 import utilsImg as u
 import segmentacion as s
+import sklearn.cluster as sc
+
 
 b_showing = 1;
 sh_scale =.25;
@@ -22,6 +24,31 @@ def getNDVI(img):
 
     #retorno el nir porque funciona mejor que ndvi
     return ndvi
+
+
+def showClustersRes(objetos,y,img,wname='resCluster'):
+    i=0;
+    for x in objetos:
+        roi = x.imagen;
+        if y[i]==1:
+            roi [x.mascara != 0 ] = 100;
+        i=i+1;
+
+        rows, cols, channels =img.shape
+        mask = x.mascara #ret, mask = cv2.threshold(img2gray, 10, 255, cv2.THRESH_BINARY)
+        # mask_inv = cv.bitwise_not(mask)
+
+        mask1 = np.zeros((rows,cols),np.uint8)
+        mask1[x.rect_y:x.rect_y+x.rect_h, x.rect_x:x.rect_x+x.rect_w] = mask[0:x.rect_h, 0:x.rect_w ]
+        img2_fg = cv.bitwise_and(img, img, mask=mask1)
+
+        # Put logo in ROI and modify the main image
+        dst = cv.add(img, img2_fg)
+        img[0:rows, 0:cols] = dst
+
+    cv.imshow(wname,img)
+    cv.waitKey(0);
+
 
 
 def segmentacion_01(img_ndvi): #unicamente segmetacion
@@ -220,9 +247,10 @@ def segmentacion_05(img,res): # img = imagen en escala de grises
         original = np.uint8(img)
     else:
         original = img
+    cv.imshow('sss',original)
 
 
-    #
+    #Parametros para diferentes resolusiones
 
     k_otsu = 11 if res==1 else  5;
     k_omorf = 6  if res==1 else 3;
@@ -230,74 +258,169 @@ def segmentacion_05(img,res): # img = imagen en escala de grises
 
     # Segmentar tierra y vegetación
     veg_mask = s.segOtsu(original, k_otsu)
-    cv.imshow('veg_mask', veg_mask)
+    #cv.imshow('veg_mask', veg_mask)
     kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (k_omorf, k_omorf))
     veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_CLOSE, kernel, iterations=1)
-    cv.imshow('veg_mask2', veg_mask)
+    #cv.imshow('veg_mask2', veg_mask)
+
     # create a CLAHE object (Arguments are optional).
     #clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     #img_e = clahe.apply(original)
     img_e = cv.equalizeHist(original)
     img_veg = cv.bitwise_and(img_e, img_e, mask=veg_mask)
     cv.imshow('img_veg', img_veg)
-    cv.waitKey()
+    #cv.waitKey()
 
     ##crear semilas
     dist = cv.distanceTransform(veg_mask , cv.DIST_L2, 3)  # distanceTransform(bw, dist, CV_DIST_L2, 3);
     cv.normalize(dist, dist, 0, 1., cv.NORM_MINMAX);
     dist = dist * 255
     dist = np.uint8(dist)
-    cv.imshow('seem0', dist)
+    #cv.imshow('seem0', dist)
     kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (k_omorf*2, k_omorf*2))
     seem = cv.morphologyEx(dist, cv.MORPH_ERODE, kernel, iterations=4)
     seem = cv.morphologyEx(seem, cv.MORPH_CLOSE, kernel, iterations=4)
     cv.imshow('seem1', seem)
-    cv.waitKey(0)
+    #cv.waitKey(0)
 
     # apilcar watershe
-    s.watershed2(seem, img_veg)
+    markes1, w_img =s.watershed2(seem, img_veg,'w_sege')
+    s.watershed2(seem, original, 'w_completa')
+
+    markes2 = np.zeros(markes1.shape)
+    markes2[markes1!=0]=255;
+    #markes1[markes1!=0] =0;
+    cv.imshow('water markers', w_img )
+
+    w_img = cv.morphologyEx(w_img, cv.MORPH_ERODE, kernel, iterations=1)
+    w_img = cv.morphologyEx(w_img, cv.MORPH_CLOSE, kernel, iterations=2)
+
+
+    canny = cv.Canny(w_img, 100, 130,9, 5);
+    # cv.imshow('markers', canny)
+    # kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2,2))
+    # canny = cv.morphologyEx(canny, cv.MORPH_ERODE, kernel, iterations=1)
+    # kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5 , 5))
+    # canny = cv.morphologyEx(canny, cv.MORPH_DILATE, kernel, iterations=1)
+    # kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+    # canny = cv.morphologyEx(canny, cv.MORPH_ERODE, kernel, iterations=2)
+    # cv.imshow('markers', canny)
+
+    im2, contours, hierarchy = cv.findContours(canny, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    print(len(contours))
+    #img = cv.DrawContours(w_img, contours, -1, (255, 0, 0),thickness=cv.CV_FILLED)
+    img = cv.drawContours(w_img, contours,  -1 ,(100, 0, 0),4)
+
+    cv.imshow('contorn3os', img)
+
+    i=0
+    lechuga = []
+    #boxing countours
+    for countorn in contours:
+        #R = cv.boundingRect(countorn);
+        x, y, w, h = cv.boundingRect(countorn)
+
+        #rect = cv.minAreaRect(countorn)
+        #box = cv.boxPoints(rect)
+        #box = np.int0(box)
+        #cv.drawContours(img, [box], 0, (0, 0, 255), 2)
+        perimeter = cv.arcLength(countorn, True)
+        if perimeter > 150 :
+            cc = original[y:y+h, x:x+w]
+            lechuga.append(cc)
+            i=i+1
+            hist = cv.calcHist([img], [0], None, [256], [0, 256])
+            cv.imshow('contornos', cc)
+
+            cv.waitKey();
+
+
+    cv.imshow('contornos', img)
     cv.waitKey();
 
-    return 0;
+    return ;
+
+def segmentacion_06(img,res):
+    # lectura de imagen
+    if img.dtype != np.uint8:
+        img = img * 255
+        original = np.uint8(img)
+    else:
+        original = img
+    cv.imshow('imagen', original)
+
+
+
+    # Parametros para diferentes resolusiones
+
+    k_otsu = 11 if res == 1 else  5;
+    k_omorf = 6 if res == 1 else 3;
+
+    # Segmentar tierra y vegetación
+    veg_mask = s.segOtsu(original, k_otsu)
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (k_omorf, k_omorf))
+    veg_mask = cv.morphologyEx(veg_mask, cv.MORPH_CLOSE, kernel, iterations=1)
+    img_e = cv.equalizeHist(original)
+    img_veg = cv.bitwise_and(img_e, img_e, mask=veg_mask)
+    cv.imshow('img_veg', img_veg)
+
+    seeds = s.findSeeds(img_veg,k_omorf)
+
+    m_watershed = s.watershed2(seeds, img_veg)
+
+
+
+    return m_watershed
+
+
+
+
 if __name__ == "__main__":
       print ("Segmentacion de lechugas")
       print ("version de opencv: " + cv.__version__)
 
 
-img_nir = cv.imread('datos/lechuga_ndvi/8.JPG',1)
+img_nir = cv.imread('datos/lechuga_ndvi/4.JPG',1)
 img_nir = u.imgResize(img_nir,sh_scale)
 d_nir = img_nir[:,:,2]
 
-img_ndvi = cv.imread('datos/ndvis/1.tif',cv.IMREAD_ANYDEPTH)
-img_ndvi = u.imgResize(img_ndvi,sh_scale)
+markers = segmentacion_06(img_nir[:,:,2], res=1) # 1 <<- res : resolucion alta ; 0 resolucion de vuelo
+#s.showMarkes(markers, 'd');
+objetos = s.getObjects(img_nir[:,:,2],markers)
 
 
-#cv.imshow('ndvi',img_ndvi)
+c_kmeans =  sc.KMeans(n_clusters=2)
+h_objetos = np.zeros((len(objetos),8),np.float64)
+i=0;
+for x in objetos:
 
-#conjunto de caracteristicas (ndvi, nir)
+    hist_t = np.float64(x.histograma.T)
+    hist_t = cv.normalize(hist_t,hist_t)
+    h_objetos[i:]=hist_t;
+    i=i+1;
 
-f_nir = np.float32(d_nir);
-f_nir = f_nir/255;
-
-rows, cols = f_nir.shape[:2];
-p = np.zeros(( cols*rows,2));
-p[:,0] = f_nir.reshape(( cols*rows,1))[:,0];
-p[:,1] = img_ndvi.reshape(( cols*rows,1))[:,0];
-p = np.float32(p)
+c_kmeans.fit(h_objetos)
+y = c_kmeans.predict(h_objetos)
 
 
-#segmentacion_05(img_nir[:, :, 2])
-segmentacion_05(img_nir[:,:,2], res=0) # 1 <<- res : resolucion alta ; 0 resolucion de vuelo
-#segmentacion_01(img_ndvi)
-#segmentacion_02(img_ndvi)
-#segmetacion_03(img_nir,img_ndvi)
+objetosAP = s.getObjects(img_nir[:,:,2],markers)
+c_AP =  sc.AffinityPropagation()
+h_objetos = np.zeros((len(objetosAP),8),np.float64)
+i=0;
+for x in objetos:
 
-#s.watershed(img_nir[:,:,2])
+    hist_t = np.float64(x.histograma.T)
+    hist_t = cv.normalize(hist_t,hist_t)
+    h_objetos[i:]=hist_t;
+    i=i+1;
 
-#s.clouster_SCL(p)
-#a  = s.MiniBachkMeans(img_nir,p);
-#a= s.AffinityPropagation(img_nir,p);
+c_AP.fit(h_objetos)
+yAP = c_AP.predict(h_objetos)
 
-#=cv.imshow("segmentacion_result", a)
+#print resultados
+showClustersRes(objetos,yAP,img_nir,'AP')
+showClustersRes(objetos,y,img_nir,'Kmeans')
 
-#cv.waitKey(0);
+
+
+cv.waitKey(0)

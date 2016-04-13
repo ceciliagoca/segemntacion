@@ -4,6 +4,27 @@ import utilsImg as ut
 import sklearn.cluster as sc
 import scipy.cluster.hierarchy as slp
 from matplotlib import pyplot as plt
+class Objeto():
+
+    imagen = None
+    mascara = None
+    histograma = None
+    clase = None
+    rect_x = None
+    rect_y = None
+    rect_w = None
+    rect_h = None
+
+    def __init__(self,img, mask, hist, rect):
+        self.imagen = img
+        self.mascara = mask
+        self.histograma = hist
+        self.rect_x = rect[0]
+        self.rect_y = rect[1]
+        self.rect_w = rect[2]
+        self.rect_h = rect[3]
+
+
 
 def textureSegemtation(img):
     #test gabor filter
@@ -15,13 +36,12 @@ def segmetarByKMeans(img,p, k, max_iter, eps):
     # rows, cols = img.shape[:2];
     # p = img.reshape(( cols*rows,1));
     # p = np.float32(p)
-
     #attempts  Flag to specify the number of times the algorithm is executed using different initial labellings.
     attempts =10;
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, max_iter, eps)
     ret,label,center=cv.kmeans(p,k,None,criteria,attempts,cv.KMEANS_PP_CENTERS)
     center2 =  center[:,0]
-    a = sorted(range(len(center2)), key=lambda k:center2[k]) #indices oordenados de menor a mayor
+    a = sorted(range(len(center2)), key=lambda k:center2[k]) #indices ordenados de menor a mayor
 
     b = 255 / (k-1);
     aux = label.copy()
@@ -35,32 +55,27 @@ def segmetarByKMeans(img,p, k, max_iter, eps):
     return img_seg
 
 def findCountorns(img, img_bin): #recibe imagen de tres canales de grises y binaria con formato +uint8
-
     #verificar tipos de datos
     cv.imshow('img_bin2', img_bin)
     cv.waitKey(0);
     im2, contours, hierarchy = cv.findContours(img_bin,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
     print (len(contours))
     cv.drawContours(img, contours, -1, (255,0,0), 6)
-    ##wathershed
-
-    #
-    # ret, markers = cv.connectedComponents(img_bin)
-    # markers = markers+1
-    # #markers[unknown ==255] = 0
-    # markers = cv.watershed(img,markers)
-    #
-    # rows, cols = img.shape[:2];
-    # img2 = np.zeros((rows,cols,3),np.uint8)
-    # img2[markers == -1] = [255,0,0]
-    #
-    #
-    #
-    # cv.imshow('treshh3', img2)
-    # cv.waitKey(0)
 
 
     return img
+
+def findSeeds(img, s_kernel):
+    dist = cv.distanceTransform(img, cv.DIST_L2, 3)  # distanceTransform(bw, dist, CV_DIST_L2, 3);
+    cv.normalize(dist, dist, 0, 1., cv.NORM_MINMAX);
+    dist = dist * 255
+    dist = np.uint8(dist)
+    # cv.imshow('seem0', dist)
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (s_kernel * 2, s_kernel * 2))
+    seed = cv.morphologyEx(dist, cv.MORPH_ERODE, kernel, iterations=4)
+    seed = cv.morphologyEx(seed, cv.MORPH_CLOSE, kernel, iterations=4)
+    return seed
+
 
 def segmentar(img):
 
@@ -109,24 +124,68 @@ def watershed2(seem, img):
     img = cv.medianBlur(img, 3)
 
     rows, cols = img.shape[:2];
-    img_aux = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
 
+    if np.size(img.shape) < 3:
+        img_a = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+    else:
+        img_a = img
+    print ('ddd')
+    ut.imgDes(img_a)
     ret, markers = cv.connectedComponents(seem)
     markers = markers + 1
     markers[seem == 0] = 0
-
-    markers = cv.watershed(img_aux, markers)
+    markers = cv.watershed(img_a, markers)
     markers[img==0] = 0
 
 
-    myset =  np.unique(markers)
+
+    return  markers
+
+def showMarkes(markers, wname):
+    rows, cols = markers.shape[:2];
+    img_aux = np.zeros((rows, cols,3), np.uint8 )
+    myset = np.unique(markers)
     i = 0
     for x in myset:
-        img_aux[markers == x] = [ x*20, x*10, x*12 ]
-        i=i+1
-        cv.imshow('watershed2', img_aux)
+        img_aux[markers == x] = [x * 20, x * 10, x * 12]
+        i = i + 1
+        cv.imshow(wname, img_aux)
         cv.waitKey(200)
-    return  0
+    return ;
+
+def getObjects(img, markers):
+
+    ut.imgDes(markers)
+    rows, cols = markers.shape[:2];
+    myset = np.unique(markers)
+    myset = np.sort(myset)
+    objetos = []
+    print (myset)
+
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (10, 10))
+    for x in myset[2:]:
+        img_aux = np.zeros((rows, cols, 1), np.uint8)
+        img_aux[markers == x] = 255;
+        img_aux = cv.morphologyEx(img_aux, cv.MORPH_OPEN, kernel, iterations=2)
+        img_aux2 = np.copy(img_aux)
+        im2, contours, hierarchy = cv.findContours(img_aux2, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        if len(contours)>0:
+            x, y, w, h = cv.boundingRect(contours[0])
+            obj_mask = img_aux[y:y + h, x:x + w]
+            obj = img[y:y + h, x:x + w]
+
+
+            hist = cv.calcHist([obj],[0],obj_mask,[8],[0,256])
+            ut.imgDes(hist)
+            objeto = Objeto(obj,obj_mask,hist,(x, y, w, h))
+            objetos.append(objeto)
+
+    return objetos;
+
+
+
+
+
 
 
 def watershed(img):
