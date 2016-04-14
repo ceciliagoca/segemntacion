@@ -380,7 +380,7 @@ if __name__ == "__main__":
       print ("version de opencv: " + cv.__version__)
 
 
-img_nir = cv.imread('datos/lechuga_ndvi/4.JPG',1)
+img_nir = cv.imread('datos/lechuga_ndvi/7.JPG',1)
 img_nir = u.imgResize(img_nir,sh_scale)
 d_nir = img_nir[:,:,2]
 
